@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<title>Funil de Tráfego — Meta Ads</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#eef1f8; --card:#ffffff; --ink:#0f172a; --muted:#64748b; --line:#e6e9f2;
+    --accent:#4f46e5; --accent2:#7c3aed; --good:#16a34a; --bad:#dc2626; --warn:#d97706;
+    --shadow:0 1px 2px rgba(16,24,40,.04),0 6px 18px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.45}
+  .wrap{max-width:1280px;margin:0 auto;padding:20px 18px 60px}
+  header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:6px}
+  .title h1{margin:0;font-size:22px;letter-spacing:-.3px}
+  .title p{margin:4px 0 0;color:var(--muted);font-size:12.5px}
+  .badge{display:inline-block;background:#eef2ff;color:var(--accent);border:1px solid #e0e3ff;
+    padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:600}
+  .meta-line{color:var(--muted);font-size:12px;text-align:right}
+  .meta-line b{color:var(--ink)}
+  button{font:inherit;cursor:pointer}
+  .btn{background:#fff;border:1px solid var(--line);border-radius:10px;padding:7px 12px;color:var(--ink);
+    box-shadow:var(--shadow);transition:.12s}
+  .btn:hover{border-color:#c9cffb}
+  .btn.refresh{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+
+  .controls{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+    padding:12px 14px;margin:14px 0 18px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+  .presets{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:12.5px;color:var(--muted)}
+  .chip.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .daterange{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12.5px}
+  .daterange input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:6px 8px;color:var(--ink)}
+  .cmp{margin-left:auto;color:var(--muted);font-size:12px;text-align:right}
+  .cmp b{color:var(--ink)}
+
+  .section-title{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);
+    margin:26px 4px 10px;font-weight:700}
+
+  .grid{display:grid;gap:12px}
+  .kpis{grid-template-columns:repeat(7,1fr)}
+  .metrics{grid-template-columns:repeat(6,1fr)}
+  @media(max-width:1100px){.kpis{grid-template-columns:repeat(4,1fr)}.metrics{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:680px){.kpis,.metrics{grid-template-columns:repeat(2,1fr)}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:13px 14px}
+  .card .label{color:var(--muted);font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;
+    display:flex;align-items:center;gap:5px}
+  .card .value{font-size:21px;font-weight:700;margin-top:6px;letter-spacing:-.4px}
+  .card .sub{margin-top:5px;font-size:11.5px;color:var(--muted)}
+  .delta{font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;gap:3px}
+  .delta.up{color:var(--good)} .delta.down{color:var(--bad)} .delta.flat{color:var(--muted)}
+  .hint{cursor:help;border-bottom:1px dotted #cbd5e1}
+
+  /* Funnel visual */
+  .funnel{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px 18px}
+  .stage{display:grid;grid-template-columns:160px 1fr 150px;align-items:center;gap:12px;margin:9px 0}
+  .stage .name{font-weight:600;font-size:13px}
+  .stage .bar{height:30px;border-radius:8px;background:linear-gradient(90deg,var(--accent),var(--accent2));
+    display:flex;align-items:center;padding-left:10px;color:#fff;font-weight:700;font-size:13px;min-width:42px;
+    transition:width .4s ease}
+  .stage .conv{font-size:12px;color:var(--muted);text-align:right}
+  .stage .conv b{color:var(--ink)}
+
+  /* Charts */
+  .charts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:900px){.charts{grid-template-columns:1fr}}
+  .chartcard{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:12px 14px}
+  .chartcard h3{margin:2px 0 10px;font-size:13.5px}
+  .chartcard .cv{position:relative;height:240px}
+
+  /* Tables */
+  .tabs{display:flex;gap:6px;margin-bottom:10px}
+  .tab{border:1px solid var(--line);background:#fff;border-radius:10px;padding:7px 14px;font-size:13px;color:var(--muted)}
+  .tab.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .tablecard{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+    padding:6px 6px;overflow:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th,td{padding:9px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left;white-space:normal;min-width:220px;position:sticky;left:0;background:var(--card)}
+  thead th{position:sticky;top:0;background:#fafbff;color:var(--muted);font-size:11px;text-transform:uppercase;
+    letter-spacing:.3px;cursor:pointer;user-select:none;z-index:2}
+  thead th:first-child{z-index:3}
+  th.sorted::after{content:" \25BC";font-size:9px}
+  th.sorted.asc::after{content:" \25B2"}
+  tbody tr:hover td{background:#f7f8ff}
+  tbody tr:hover td:first-child{background:#f7f8ff}
+  td.best{color:var(--good);font-weight:700}
+  tr.total td{font-weight:700;background:#fbfbff;border-top:2px solid var(--line)}
+  tr.total td:first-child{background:#fbfbff}
+  tr.unattr td{color:var(--muted);font-style:italic}
+  .pill{font-size:10.5px;padding:1px 7px;border-radius:999px;background:#eef2ff;color:var(--accent);font-weight:700}
+  footer{margin-top:34px;color:var(--muted);font-size:11.5px;text-align:center;line-height:1.7}
+  .err{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;padding:14px;border-radius:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="title">
+      <h1>Funil de Tráfego — Meta Ads <span class="badge" id="taxBadge">imposto ×1,1385</span></h1>
+      <p>Investimento → Impressões → Cliques → Page Views → Checkouts → Vendas · vendas atribuídas por UTM (campanha / conjunto / anúncio)</p>
+    </div>
+    <div>
+      <div class="meta-line" id="updated">Carregando…</div>
+      <div style="margin-top:8px;text-align:right"><button class="btn refresh" id="refreshBtn">↻ Atualizar agora</button></div>
+    </div>
+  </header>
+
+  <div id="root"></div>
+
+  <footer>
+    Gasto com imposto aplicado (×<span id="taxFoot">1,1385</span>) em <b>todas</b> as métricas de custo (CPM, CPC, CAC, ROAS…).
+    Página estática publicada no GitHub Pages, reconstruída na nuvem (GitHub Actions) — somente leitura das planilhas.<br>
+    Conversão = Vendas ÷ Page Views · CAC = Gasto c/ imposto ÷ Vendas · ROAS = Receita ÷ Gasto c/ imposto.
+  </footer>
+</div>
+
+<script>
+"use strict";
+const TAXBADGE = document.getElementById('taxBadge');
+const ROOT = document.getElementById('root');
+
+// ---- formatting ----
+const nfBRL = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const nfInt = new Intl.NumberFormat('pt-BR');
+const nf2   = new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const DASH = '—';
+const money = v => (v==null||!isFinite(v))?DASH:nfBRL.format(v);
+const int   = v => (v==null||!isFinite(v))?DASH:nfInt.format(Math.round(v));
+const dec   = (v,d=2) => (v==null||!isFinite(v))?DASH:new Intl.NumberFormat('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}).format(v);
+const pct   = (v,d=2) => (v==null||!isFinite(v))?DASH:dec(v,d)+'%';
+
+// ---- date helpers (YYYY-MM-DD lexicographic = chronological) ----
+const toDate = s => { const [y,m,d]=s.split('-').map(Number); return new Date(Date.UTC(y,m-1,d)); };
+const fromDate = dt => dt.toISOString().slice(0,10);
+const addDays = (s,n)=>{ const dt=toDate(s); dt.setUTCDate(dt.getUTCDate()+n); return fromDate(dt); };
+const diffDays = (a,b)=> Math.round((toDate(b)-toDate(a))/86400000); // b-a
+const fmtBR = s => { const [y,m,d]=s.split('-'); return d+'/'+m+'/'+y; };
+
+let DATA=null, ADS=[], SALES=[], TAX=1.1385, MIN=null, MAX=null;
+let curStart=null, curEnd=null, preset='all';
+let activeLevel='campaign';
+const sortState = { campaign:{key:'spendT',dir:-1}, adset:{key:'spendT',dir:-1}, ad:{key:'spendT',dir:-1} };
+
+async function load(){
+  try{
+    const res = await fetch('./data.json?v='+Date.now(), {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    DATA = await res.json();
+  }catch(e){
+    ROOT.innerHTML = '<div class="err">Não foi possível carregar <b>data.json</b> ('+e.message+'). Se o site acabou de subir, aguarde a primeira execução do GitHub Actions e recarregue.</div>';
+    document.getElementById('updated').textContent='—';
+    return;
+  }
+  ADS = DATA.ads||[]; SALES = DATA.sales||[]; TAX = DATA.taxRate||1.1385;
+  TAXBADGE.textContent = 'imposto ×'+nf2.format(TAX);
+  document.getElementById('taxFoot').textContent = nf2.format(TAX);
+  MIN = DATA.dateRange.min; MAX = DATA.dateRange.max;
+  curStart = MIN; curEnd = MAX; preset='all';
+  const g = DATA.generatedAt ? new Date(DATA.generatedAt) : null;
+  document.getElementById('updated').innerHTML = g
+    ? 'Última atualização: <b>'+g.toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'})+'</b> (Brasília)'
+    : '';
+  scaffold();
+  render();
+}
+
+// ---- aggregation ----
+function sumAds(s,e){
+  const t={spend:0,impressions:0,clicks:0,lpv:0,checkouts:0};
+  for(const r of ADS){ if(r.date>=s&&r.date<=e){ t.spend+=r.spend; t.impressions+=r.impressions; t.clicks+=r.clicks; t.lpv+=r.lpv; t.checkouts+=r.checkouts; } }
+  return t;
+}
+function sumSales(s,e){
+  const t={count:0,revenue:0,attrCount:0,attrRevenue:0};
+  for(const r of SALES){ if(r.date>=s&&r.date<=e){ t.count+=r.count; t.revenue+=r.revenue; if(r.attributed){t.attrCount+=r.count;t.attrRevenue+=r.revenue;} } }
+  return t;
+}
+function metrics(a, sl){
+  const spendT=a.spend*TAX;
+  return {
+    spend:a.spend, spendT,
+    impressions:a.impressions, clicks:a.clicks, lpv:a.lpv, checkouts:a.checkouts,
+    sales:sl.count, revenue:sl.revenue,
+    cpm: a.impressions? spendT/a.impressions*1000 : null,
+    ctr: a.impressions? a.clicks/a.impressions*100 : null,
+    cpc: a.clicks? spendT/a.clicks : null,
+    cpLpv: a.lpv? spendT/a.lpv : null,
+    cpChk: a.checkouts? spendT/a.checkouts : null,
+    cac: sl.count? spendT/sl.count : null,
+    conv: a.lpv? sl.count/a.lpv*100 : null,
+    roas: spendT? sl.revenue/spendT : null,
+  };
+}
+
+// ---- delta ----
+function deltaHTML(cur, prev, good){ // good: 'up' | 'down' | 'flat'
+  if((prev==null||prev===0)&&(cur==null||cur===0)) return '<span class="delta flat">—</span>';
+  if(prev==null||prev===0) return '<span class="delta '+(good==='flat'?'flat':'up')+'">novo</span>';
+  const p=(cur-prev)/Math.abs(prev)*100;
+  const rising = cur>=prev;
+  let cls='flat';
+  if(good==='up') cls = rising?'up':'down';
+  else if(good==='down') cls = rising?'down':'up';
+  const arrow = Math.abs(p)<0.05 ? '→' : (rising?'▲':'▼');
+  return '<span class="delta '+cls+'">'+arrow+' '+dec(Math.abs(p),1)+'%</span>';
+}
+
+// ---- scaffold (controls once) ----
+function scaffold(){
+  ROOT.innerHTML = `
+  <div class="controls">
+    <div class="presets" id="presets"></div>
+    <div class="daterange">
+      <span>De</span><input type="date" id="d1" min="${MIN}" max="${MAX}" value="${curStart}">
+      <span>até</span><input type="date" id="d2" min="${MIN}" max="${MAX}" value="${curEnd}">
+    </div>
+    <div class="cmp" id="cmpLabel"></div>
+  </div>
+
+  <div class="section-title">Funil do período</div>
+  <div class="funnel" id="funnel"></div>
+
+  <div class="section-title">Indicadores (gasto com imposto · Δ vs período anterior)</div>
+  <div class="grid kpis" id="kpis"></div>
+  <div class="grid metrics" id="metricCards" style="margin-top:12px"></div>
+
+  <div class="section-title">Evolução diária</div>
+  <div class="charts">
+    <div class="chartcard"><h3>Investimento (c/ imposto) × Receita</h3><div class="cv"><canvas id="chSpend"></canvas></div></div>
+    <div class="chartcard"><h3>Funil por dia</h3><div class="cv"><canvas id="chFunnel"></canvas></div></div>
+    <div class="chartcard"><h3>ROAS por dia</h3><div class="cv"><canvas id="chRoas"></canvas></div></div>
+    <div class="chartcard"><h3>CPC × CAC por dia</h3><div class="cv"><canvas id="chCost"></canvas></div></div>
+  </div>
+
+  <div class="section-title">Otimização — onde o resultado é mais barato</div>
+  <div class="tabs" id="tabs">
+    <button class="tab" data-l="campaign">Por Campanha</button>
+    <button class="tab" data-l="adset">Por Conjunto</button>
+    <button class="tab" data-l="ad">Por Anúncio</button>
+  </div>
+  <div class="tablecard"><div id="tableHost"></div></div>
+  `;
+
+  const presets=[['today','Hoje'],['yesterday','Ontem'],['7','7 dias'],['14','14 dias'],['30','30 dias'],['all','Tudo']];
+  const ph=document.getElementById('presets');
+  presets.forEach(([k,l])=>{ const b=document.createElement('button'); b.className='chip'+(k===preset?' active':''); b.textContent=l; b.dataset.k=k; b.onclick=()=>applyPreset(k); ph.appendChild(b); });
+  document.getElementById('d1').onchange=onCustom;
+  document.getElementById('d2').onchange=onCustom;
+  document.querySelectorAll('#tabs .tab').forEach(t=>{ t.classList.toggle('active',t.dataset.l===activeLevel); t.onclick=()=>{activeLevel=t.dataset.l; document.querySelectorAll('#tabs .tab').forEach(x=>x.classList.toggle('active',x===t)); renderTable();}; });
+}
+
+function applyPreset(k){
+  preset=k;
+  if(k==='all'){ curStart=MIN; curEnd=MAX; }
+  else if(k==='today'){ curStart=MAX; curEnd=MAX; }
+  else if(k==='yesterday'){ const y=addDays(MAX,-1); curStart=y<MIN?MIN:y; curEnd=y<MIN?MIN:y; }
+  else { const n=parseInt(k,10); let s=addDays(MAX,-(n-1)); if(s<MIN)s=MIN; curStart=s; curEnd=MAX; }
+  document.getElementById('d1').value=curStart; document.getElementById('d2').value=curEnd;
+  document.querySelectorAll('#presets .chip').forEach(c=>c.classList.toggle('active',c.dataset.k===preset));
+  render();
+}
+function onCustom(){
+  let s=document.getElementById('d1').value, e=document.getElementById('d2').value;
+  if(!s||!e) return; if(s>e){ const t=s; s=e; e=t; }
+  curStart=s; curEnd=e; preset='custom';
+  document.querySelectorAll('#presets .chip').forEach(c=>c.classList.remove('active'));
+  render();
+}
+
+// ---- render ----
+let charts={};
+function render(){
+  const len = diffDays(curStart,curEnd)+1;
+  const pEnd = addDays(curStart,-1);
+  const pStart = addDays(pEnd,-(len-1));
+  document.getElementById('cmpLabel').innerHTML =
+    'Período: <b>'+fmtBR(curStart)+' – '+fmtBR(curEnd)+'</b> ('+len+'d)<br>vs anterior: '+fmtBR(pStart)+' – '+fmtBR(pEnd);
+
+  const cur = metrics(sumAds(curStart,curEnd), sumSales(curStart,curEnd));
+  const prv = metrics(sumAds(pStart,pEnd), sumSales(pStart,pEnd));
+
+  renderFunnel(cur);
+  renderKPIs(cur,prv);
+  renderCharts();
+  renderTable();
+}
+
+function renderFunnel(m){
+  const stages=[
+    ['Investimento', money(m.spendT), m.spendT, null],
+    ['Impressões', int(m.impressions), m.impressions, null],
+    ['Cliques', int(m.clicks), m.clicks, m.impressions?m.clicks/m.impressions*100:null],
+    ['Page Views', int(m.lpv), m.lpv, m.clicks?m.lpv/m.clicks*100:null],
+    ['Checkouts Initiated', int(m.checkouts), m.checkouts, m.lpv?m.checkouts/m.lpv*100:null],
+    ['Vendas', int(m.sales), m.sales, m.checkouts?m.sales/m.checkouts*100:null],
+  ];
+  const vols=stages.map(s=>s[2]||0);
+  const maxV=Math.max(...vols.slice(1))||1; // scale by funnel volume (skip money stage)
+  let html='';
+  stages.forEach((s,i)=>{
+    const w = i===0 ? 100 : Math.max(4, (s[2]/maxV)*100);
+    const conv = s[3]==null ? (i===0?'<b>'+money(m.revenue)+'</b> receita':'') : ('passo: <b>'+pct(s[3],1)+'</b>');
+    html+=`<div class="stage"><div class="name">${s[0]}</div><div class="bar" style="width:${w}%">${s[1]}</div><div class="conv">${conv}</div></div>`;
+  });
+  document.getElementById('funnel').innerHTML=html;
+}
+
+function card(label,value,deltaHtml,sub,hint){
+  return `<div class="card"><div class="label">${hint?`<span class="hint" title="${hint}">${label}</span>`:label}</div>
+    <div class="value">${value}</div><div class="sub">${deltaHtml||''} ${sub?('&nbsp;'+sub):''}</div></div>`;
+}
+function renderKPIs(c,p){
+  const k=document.getElementById('kpis');
+  k.innerHTML =
+    card('Investimento', money(c.spendT), deltaHTML(c.spendT,p.spendT,'flat'), 'c/ imposto') +
+    card('Impressões', int(c.impressions), deltaHTML(c.impressions,p.impressions,'flat')) +
+    card('Cliques', int(c.clicks), deltaHTML(c.clicks,p.clicks,'up')) +
+    card('Page Views', int(c.lpv), deltaHTML(c.lpv,p.lpv,'up')) +
+    card('Checkouts', int(c.checkouts), deltaHTML(c.checkouts,p.checkouts,'up')) +
+    card('Vendas', int(c.sales), deltaHTML(c.sales,p.sales,'up')) +
+    card('Receita', money(c.revenue), deltaHTML(c.revenue,p.revenue,'up'));
+  const mc=document.getElementById('metricCards');
+  mc.innerHTML =
+    card('CPM', money(c.cpm), deltaHTML(c.cpm,p.cpm,'down'), '', 'Custo por mil impressões (gasto c/ imposto ÷ impressões × 1000)') +
+    card('CTR', pct(c.ctr), deltaHTML(c.ctr,p.ctr,'up'), '', 'Cliques ÷ Impressões') +
+    card('CPC', money(c.cpc), deltaHTML(c.cpc,p.cpc,'down'), '', 'Custo por clique (gasto c/ imposto ÷ cliques)') +
+    card('CAC', money(c.cac), deltaHTML(c.cac,p.cac,'down'), '', 'Custo de aquisição (gasto c/ imposto ÷ vendas)') +
+    card('Conversão', pct(c.conv), deltaHTML(c.conv,p.conv,'up'), 'vendas/PV', 'Vendas ÷ Page Views') +
+    card('ROAS', dec(c.roas)+'×', deltaHTML(c.roas,p.roas,'up'), '', 'Receita ÷ gasto c/ imposto');
+}
+
+// daily series for current period
+function dailySeries(){
+  const days=[]; for(let d=curStart; d<=curEnd; d=addDays(d,1)) days.push(d);
+  const map={}; days.forEach(d=>map[d]={spendT:0,revenue:0,clicks:0,lpv:0,checkouts:0,sales:0});
+  for(const r of ADS){ if(map[r.date]){ map[r.date].spendT+=r.spend*TAX; map[r.date].clicks+=r.clicks; map[r.date].lpv+=r.lpv; map[r.date].checkouts+=r.checkouts; } }
+  for(const r of SALES){ if(map[r.date]){ map[r.date].revenue+=r.revenue; map[r.date].sales+=r.count; } }
+  return {days, map};
+}
+function mkChart(id, cfg){ if(charts[id]) charts[id].destroy(); charts[id]=new Chart(document.getElementById(id), cfg); }
+function renderCharts(){
+  const {days,map}=dailySeries();
+  const labels=days.map(fmtBR);
+  const C=getComputedStyle(document.documentElement);
+  const A=C.getPropertyValue('--accent').trim(), A2=C.getPropertyValue('--accent2').trim(), G=C.getPropertyValue('--good').trim(), W=C.getPropertyValue('--warn').trim(), B=C.getPropertyValue('--bad').trim();
+  const baseOpts={responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{labels:{boxWidth:12,font:{size:11}}}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,ticks:{font:{size:10}}}}};
+
+  mkChart('chSpend',{type:'bar',data:{labels,datasets:[
+      {label:'Investimento',data:days.map(d=>+map[d].spendT.toFixed(2)),backgroundColor:A+'cc',borderRadius:5,order:2},
+      {label:'Receita',type:'line',data:days.map(d=>+map[d].revenue.toFixed(2)),borderColor:G,backgroundColor:G,tension:.3,order:1,pointRadius:3}
+    ]},options:baseOpts});
+
+  mkChart('chFunnel',{type:'line',data:{labels,datasets:[
+      {label:'Cliques',data:days.map(d=>map[d].clicks),borderColor:A,backgroundColor:A,tension:.3,pointRadius:2},
+      {label:'Page Views',data:days.map(d=>map[d].lpv),borderColor:A2,backgroundColor:A2,tension:.3,pointRadius:2},
+      {label:'Checkouts',data:days.map(d=>map[d].checkouts),borderColor:W,backgroundColor:W,tension:.3,pointRadius:2},
+      {label:'Vendas',data:days.map(d=>map[d].sales),borderColor:G,backgroundColor:G,tension:.3,pointRadius:3}
+    ]},options:baseOpts});
+
+  mkChart('chRoas',{type:'bar',data:{labels,datasets:[
+      {label:'ROAS (×)',data:days.map(d=>map[d].spendT? +(map[d].revenue/map[d].spendT).toFixed(2):0),backgroundColor:A2+'cc',borderRadius:5}
+    ]},options:baseOpts});
+
+  mkChart('chCost',{type:'line',data:{labels,datasets:[
+      {label:'CPC',data:days.map(d=>map[d].clicks? +(map[d].spendT/map[d].clicks).toFixed(2):null),borderColor:A,backgroundColor:A,tension:.3,pointRadius:2,spanGaps:true},
+      {label:'CAC',data:days.map(d=>map[d].sales? +(map[d].spendT/map[d].sales).toFixed(2):null),borderColor:B,backgroundColor:B,tension:.3,pointRadius:3,spanGaps:true}
+    ]},options:baseOpts});
+}
+
+// ---- optimization tables ----
+const COLS=[
+  ['name','Nome',null],
+  ['spendT','Invest. c/ imp',v=>money(v)],
+  ['impressions','Impr.',v=>int(v)],
+  ['clicks','Cliques',v=>int(v)],
+  ['ctr','CTR',v=>pct(v)],
+  ['cpc','CPC',v=>money(v)],
+  ['cpm','CPM',v=>money(v)],
+  ['lpv','Page Views',v=>int(v)],
+  ['checkouts','Checkouts',v=>int(v)],
+  ['sales','Vendas',v=>int(v)],
+  ['revenue','Receita',v=>money(v)],
+  ['conv','Conv.',v=>pct(v)],
+  ['cac','CAC',v=>money(v)],
+  ['roas','ROAS',v=>v==null?DASH:dec(v)+'×'],
+];
+function rowMetrics(r){
+  const m=metrics({spend:r.spend,impressions:r.impressions,clicks:r.clicks,lpv:r.lpv,checkouts:r.checkouts},{count:r.salesCount,revenue:r.salesRev});
+  m.name=r.name; m.unattr=r.unattr && r.spend===0; return m;
+}
+function renderTable(){
+  // gather within period
+  const m={};
+  const lvl=activeLevel;
+  const blank=k=>({name:k,spend:0,impressions:0,clicks:0,lpv:0,checkouts:0,salesCount:0,salesRev:0,unattr:false});
+  for(const r of ADS){ if(r.date<curStart||r.date>curEnd) continue; const k=(r[lvl]||'(sem nome)'); const o=(m[k]=m[k]||blank(k)); o.spend+=r.spend;o.impressions+=r.impressions;o.clicks+=r.clicks;o.lpv+=r.lpv;o.checkouts+=r.checkouts; }
+  for(const r of SALES){ if(r.date<curStart||r.date>curEnd) continue; let k=(r[lvl]||'').trim(); if(!k){k='(não atribuído)';} const o=(m[k]=m[k]||blank(k)); if(k==='(não atribuído)')o.unattr=true; o.salesCount+=r.count;o.salesRev+=r.revenue; }
+  let rows=Object.values(m).map(rowMetrics);
+
+  // best markers (lowest CAC, highest ROAS among rows with sales & spend)
+  const withSales=rows.filter(r=>r.sales>0 && r.spendT>0 && !r.unattr);
+  const bestCac = withSales.length? Math.min(...withSales.map(r=>r.cac)) : null;
+  const bestRoas= withSales.length? Math.max(...withSales.map(r=>r.roas)) : null;
+
+  // sort
+  const st=sortState[lvl];
+  rows.sort((a,b)=>{
+    if(a.unattr!==b.unattr) return a.unattr?1:-1; // unattributed last
+    let va=a[st.key], vb=b[st.key];
+    if(st.key==='name') return st.dir*String(va).localeCompare(String(vb),'pt-BR');
+    va=(va==null||!isFinite(va))?-Infinity:va; vb=(vb==null||!isFinite(vb))?-Infinity:vb;
+    return st.dir*(va-vb);
+  });
+
+  // totals
+  const T=rows.reduce((t,r)=>{t.spend+=r.spend;t.impressions+=r.impressions;t.clicks+=r.clicks;t.lpv+=r.lpv;t.checkouts+=r.checkouts;t.salesCount+=r.sales;t.salesRev+=r.revenue;return t;},{spend:0,impressions:0,clicks:0,lpv:0,checkouts:0,salesCount:0,salesRev:0,name:'TOTAL'});
+  const TM=rowMetrics(T);
+
+  let html='<table><thead><tr>';
+  COLS.forEach(c=>{ const sorted=st.key===c[0]; html+=`<th data-k="${c[0]}" class="${sorted?'sorted '+(st.dir>0?'asc':''):''}">${c[1]}</th>`; });
+  html+='</tr></thead><tbody>';
+  for(const r of rows){
+    html+='<tr class="'+(r.unattr?'unattr':'')+'">';
+    COLS.forEach(c=>{
+      const k=c[0]; let v=r[k]; let cell = k==='name' ? escapeHtml(v) : (c[2]?c[2](v):v);
+      let cls='';
+      if(k==='cac'&&bestCac!=null&&r.cac===bestCac) cls='best';
+      if(k==='roas'&&bestRoas!=null&&r.roas===bestRoas) cls='best';
+      html+='<td class="'+cls+'">'+cell+'</td>';
+    });
+    html+='</tr>';
+  }
+  // total row
+  html+='<tr class="total">';
+  COLS.forEach(c=>{ const k=c[0]; let v=TM[k]; let cell=k==='name'?'TOTAL':(c[2]?c[2](v):v); html+='<td>'+cell+'</td>'; });
+  html+='</tr></tbody></table>';
+  document.getElementById('tableHost').innerHTML=html;
+
+  document.querySelectorAll('#tableHost thead th').forEach(th=>{
+    th.onclick=()=>{ const k=th.dataset.k; if(st.key===k) st.dir*=-1; else {st.key=k; st.dir = k==='name'?1:-1;} renderTable(); };
+  });
+}
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+document.getElementById('refreshBtn').onclick=load;
+load();
+</script>
+</body>
+</html>
