@@ -160,8 +160,8 @@ footer{margin-top:34px;color:var(--muted);font-size:11.5px;text-align:center;lin
 
   <!-- Main navigation -->
   <nav class="nav-tabs" id="navTabs">
-    <button class="nav-tab active" data-t="metaads">Meta Ads</button>
-    <button class="nav-tab" data-t="allsales">Todas as Vendas</button>
+    <button class="nav-tab active" data-t="metaads">Tráfego Pago</button>
+    <button class="nav-tab" data-t="allsales">Pago + Orgânico</button>
     <button class="nav-tab" data-t="insights">Insights</button>
   </nav>
 
@@ -246,6 +246,9 @@ function metrics(a,sl){
     cac:sl.count?spendT/sl.count:null,
     conv:a.lpv?sl.count/a.lpv*100:null,
     roas:spendT?sl.revenue/spendT:null,
+    clkToPv:a.clicks?a.lpv/a.clicks*100:null,
+    pvToChk:a.lpv?a.checkouts/a.lpv*100:null,
+    chkToSales:a.checkouts?sl.count/a.checkouts*100:null,
   };
 }
 // Aggregate by level (campaign/adset/ad), only counting Facebook-Ads sales.
@@ -393,6 +396,9 @@ function renderMetaAds(){
   <div class="grid g7" id="kpiBox"></div>
   <div class="grid g6" id="metBox" style="margin-top:12px"></div>
 
+  <div class="section-title">Taxas de Passagem</div>
+  <div class="grid g3" id="taxasBox"></div>
+
   <div class="section-title">Evolução diária</div>
   <div class="charts">
     <div class="chartcard"><h3>Investimento (c/ imposto) × Receita Meta</h3><div class="cv"><canvas id="chSpend"></canvas></div></div>
@@ -400,6 +406,9 @@ function renderMetaAds(){
     <div class="chartcard"><h3>ROAS por dia</h3><div class="cv"><canvas id="chRoas"></canvas></div></div>
     <div class="chartcard"><h3>CPC × CAC por dia</h3><div class="cv"><canvas id="chCost"></canvas></div></div>
   </div>
+
+  <div class="section-title">Detalhamento por dia</div>
+  <div class="tablecard" id="dailyTable"></div>
 
   <div class="section-title">Otimização — onde o custo por resultado é mais barato</div>
   <div class="tabs" id="optTabs">
@@ -448,10 +457,15 @@ function renderMetaAds(){
     card('Conversão',pct(cur.conv),deltaHTML(cur.conv,prv.conv,'up'),'vendas/PV','Vendas Meta ÷ Page Views')+
     card('ROAS',dec(cur.roas)+'×',deltaHTML(cur.roas,prv.roas,'up'),'','Receita Meta ÷ Gasto c/ imposto');
 
+  document.getElementById('taxasBox').innerHTML=
+    card('Cliques → Page Views',pct(cur.clkToPv),deltaHTML(cur.clkToPv,prv.clkToPv,'up'),'','Usuários que chegaram à página ÷ cliques')+
+    card('Page Views → Checkouts',pct(cur.pvToChk),deltaHTML(cur.pvToChk,prv.pvToChk,'up'),'','Checkouts iniciados ÷ page views')+
+    card('Checkouts → Vendas Meta',pct(cur.chkToSales),deltaHTML(cur.chkToSales,prv.chkToSales,'up'),'','Vendas Meta ÷ checkouts iniciados');
+
   // Charts
   const days=[];for(let d=curStart;d<=curEnd;d=addDays(d,1))days.push(d);
-  const dm={};days.forEach(d=>dm[d]={spendT:0,revenue:0,clicks:0,lpv:0,checkouts:0,sales:0});
-  for(const r of ADS){if(dm[r.date]){dm[r.date].spendT+=r.spend*TAX;dm[r.date].clicks+=r.clicks;dm[r.date].lpv+=r.lpv;dm[r.date].checkouts+=r.checkouts;}}
+  const dm={};days.forEach(d=>dm[d]={spendT:0,impressions:0,clicks:0,lpv:0,checkouts:0,revenue:0,sales:0});
+  for(const r of ADS){if(dm[r.date]){dm[r.date].spendT+=r.spend*TAX;dm[r.date].impressions+=r.impressions;dm[r.date].clicks+=r.clicks;dm[r.date].lpv+=r.lpv;dm[r.date].checkouts+=r.checkouts;}}
   for(const r of SALES){if(r.source==='facebook'&&dm[r.date]){dm[r.date].revenue+=r.revenue;dm[r.date].sales+=r.count;}}
   const lbs=days.map(fmtBR);
   const A=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
@@ -477,6 +491,27 @@ function renderMetaAds(){
     {label:'CPC',data:days.map(d=>dm[d].clicks?+(dm[d].spendT/dm[d].clicks).toFixed(2):null),borderColor:A,tension:.3,pointRadius:2,spanGaps:true},
     {label:'CAC',data:days.map(d=>dm[d].sales?+(dm[d].spendT/dm[d].sales).toFixed(2):null),borderColor:BD,tension:.3,pointRadius:3,spanGaps:true}
   ]},options:baseOpts()});
+
+  // Daily detail table
+  {
+    let dt='<table><thead><tr><th>Data</th><th>Invest. c/imp</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>Page Views</th><th>Cliq→PV</th><th>Checkouts</th><th>PV→CHK</th><th>Vendas</th><th>CHK→Vnd</th><th>Receita</th><th>ROAS</th><th>CAC</th></tr></thead><tbody>';
+    let [tSp,tIm,tCl,tLp,tCk,tSl,tRv]=[0,0,0,0,0,0,0];
+    for(const d of days){
+      const r=dm[d];
+      const ctr=r.impressions?r.clicks/r.impressions*100:null;
+      const c2pv=r.clicks?r.lpv/r.clicks*100:null;
+      const pv2ck=r.lpv?r.checkouts/r.lpv*100:null;
+      const ck2sl=r.checkouts?r.sales/r.checkouts*100:null;
+      const roas=r.spendT?r.revenue/r.spendT:null;
+      const cac=r.sales?r.spendT/r.sales:null;
+      tSp+=r.spendT;tIm+=r.impressions;tCl+=r.clicks;tLp+=r.lpv;tCk+=r.checkouts;tSl+=r.sales;tRv+=r.revenue;
+      dt+=`<tr><td>${fmtBR(d)}</td><td>${money(r.spendT)}</td><td>${int(r.impressions)}</td><td>${int(r.clicks)}</td><td>${pct(ctr)}</td><td>${int(r.lpv)}</td><td>${pct(c2pv)}</td><td>${int(r.checkouts)}</td><td>${pct(pv2ck)}</td><td>${int(r.sales)}</td><td>${pct(ck2sl)}</td><td>${money(r.revenue)}</td><td>${roas!=null?dec(roas)+'×':DASH}</td><td>${money(cac)}</td></tr>`;
+    }
+    const tRoas=tSp?tRv/tSp:null,tCac=tSl?tSp/tSl:null,tCtr=tIm?tCl/tIm*100:null,tC2pv=tCl?tLp/tCl*100:null,tPv2ck=tLp?tCk/tLp*100:null,tCk2sl=tCk?tSl/tCk*100:null;
+    dt+=`<tr class="total"><td>TOTAL</td><td>${money(tSp)}</td><td>${int(tIm)}</td><td>${int(tCl)}</td><td>${pct(tCtr)}</td><td>${int(tLp)}</td><td>${pct(tC2pv)}</td><td>${int(tCk)}</td><td>${pct(tPv2ck)}</td><td>${int(tSl)}</td><td>${pct(tCk2sl)}</td><td>${money(tRv)}</td><td>${tRoas!=null?dec(tRoas)+'×':DASH}</td><td>${money(tCac)}</td></tr>`;
+    dt+='</tbody></table>';
+    document.getElementById('dailyTable').innerHTML=dt;
+  }
 
   // Opt table sub-tabs
   document.querySelectorAll('#optTabs .tab').forEach(t=>{
