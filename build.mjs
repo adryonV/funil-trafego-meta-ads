@@ -112,7 +112,7 @@ function headerIndex(headerRow, name) {
     const r = a[i];
     if (!r || r.length < 2) continue;
     const day = String(r[I.day] || '').trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue; // skip blanks / totals
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
     ads.push({
       date: day,
       campaign: normKey(r[I.camp]),
@@ -130,35 +130,54 @@ function headerIndex(headerRow, name) {
   const s = parseCSV(csvSales);
   const h2 = s[0];
   const J = {
-    val: headerIndex(h2, 'Valor da Compra'),
-    camp: headerIndex(h2, 'utm_campaign'),
-    set: headerIndex(h2, 'utm_medium'),
-    ad: headerIndex(h2, 'utm_content'),
+    source: headerIndex(h2, 'Utm_source'),       // utm_source column — determines if sale is from Facebook Ads
+    val:    headerIndex(h2, 'Valor da Compra'),
+    camp:   headerIndex(h2, 'utm_campaign'),
+    set:    headerIndex(h2, 'utm_medium'),
+    ad:     headerIndex(h2, 'utm_content'),
   };
-  // Aggregate sales by (date, campaign, adset, ad) — NO names / emails leave this script.
+
+  // Aggregate sales by (date, source, campaign, adset, ad) — NO names / emails leave this script.
   const salesMap = new Map();
   let salesTotal = 0, revenueTotal = 0, attributedTotal = 0;
+
   for (let i = 1; i < s.length; i++) {
     const r = s[i];
     if (!r || r.length < 2) continue;
     const date = brazilDate(r[0], r[1]);
     if (!date) continue;
     const value = num(r[J.val]);
+
+    // A sale is "from Facebook Ads" only when utm_source === 'facebook-ads' (case-insensitive).
+    const srcRaw = String(r[J.source] || '').trim();
+    const isFb   = srcRaw.toLowerCase() === 'facebook-ads';
+
     const campOk = isUtm(r[J.camp]);
-    const setOk = isUtm(r[J.set]);
-    const adOk = isUtm(r[J.ad]);
-    const attributed = campOk; // attributed to a campaign at minimum
-    const campaign = campOk ? normKey(r[J.camp]) : '';
-    const adset = setOk ? normKey(r[J.set]) : '';
-    const ad = adOk ? normKey(r[J.ad]) : '';
-    const key = [date, campaign, adset, ad].join('||');
-    if (!salesMap.has(key)) salesMap.set(key, { date, campaign, adset, ad, attributed, count: 0, revenue: 0 });
+    const setOk  = isUtm(r[J.set]);
+    const adOk   = isUtm(r[J.ad]);
+
+    // "attributed" = came from Facebook Ads AND has campaign data (can be joined to ad spend rows).
+    const attributed = isFb && campOk;
+
+    // source: 'facebook' | 'organic'
+    const source   = isFb ? 'facebook' : 'organic';
+    const campaign = isFb && campOk ? normKey(r[J.camp]) : '';
+    const adset    = isFb && setOk  ? normKey(r[J.set])  : '';
+    const ad       = isFb && adOk   ? normKey(r[J.ad])   : '';
+
+    const key = [date, source, campaign, adset, ad].join('||');
+    if (!salesMap.has(key)) salesMap.set(key, { date, source, campaign, adset, ad, attributed, count: 0, revenue: 0 });
     const o = salesMap.get(key);
     o.count++; o.revenue += value;
     salesTotal++; revenueTotal += value;
     if (attributed) attributedTotal++;
   }
+
   const sales = [...salesMap.values()].map((o) => ({ ...o, revenue: Math.round(o.revenue * 100) / 100 }));
+
+  // Pre-compute source totals for the dashboard summary.
+  const fbSales  = sales.filter(s => s.source === 'facebook');
+  const orgSales = sales.filter(s => s.source === 'organic');
 
   // ---------------- Output ----------------
   const allDates = [...ads.map((x) => x.date), ...sales.map((x) => x.date)].sort();
@@ -169,10 +188,13 @@ function headerIndex(headerRow, name) {
     dateRange: { min: allDates[0] || null, max: allDates[allDates.length - 1] || null },
     counts: {
       adRows: ads.length,
-      salesRows: sales.length,
       salesTotal,
-      salesAttributed: attributedTotal,
-      revenueTotal: Math.round(revenueTotal * 100) / 100,
+      salesFb:          fbSales.reduce((a, b) => a + b.count, 0),
+      salesOrg:         orgSales.reduce((a, b) => a + b.count, 0),
+      salesAttributed:  attributedTotal,
+      revenueTotal:     Math.round(revenueTotal * 100) / 100,
+      revenueFb:        Math.round(fbSales.reduce((a, b) => a + b.revenue, 0) * 100) / 100,
+      revenueOrg:       Math.round(orgSales.reduce((a, b) => a + b.revenue, 0) * 100) / 100,
     },
     ads,
     sales,
@@ -183,7 +205,6 @@ function headerIndex(headerRow, name) {
   console.log('Wrote public/data.json', out.counts, out.dateRange);
 
   if (ads.length === 0) {
-    // Fail the build so we never publish an empty dashboard over a good one.
     throw new Error('No ad rows parsed — aborting so the previous deploy is kept.');
   }
 })().catch((err) => {
