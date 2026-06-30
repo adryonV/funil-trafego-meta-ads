@@ -494,7 +494,7 @@ function renderMetaAds(){
 
   // Daily detail table
   {
-    let dt='<table><thead><tr><th>Data</th><th>Invest. c/imp</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>Page Views</th><th>Cliq→PV</th><th>Checkouts</th><th>PV→CHK</th><th>Vendas</th><th>CHK→Vnd</th><th>Receita</th><th>ROAS</th><th>CAC</th></tr></thead><tbody>';
+    let dt='<table><thead><tr><th>Data</th><th>Invest. c/imp</th><th>CAC</th><th>ROAS</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>Page Views</th><th>Cliq→PV</th><th>Checkouts</th><th>PV→CHK</th><th>Vendas</th><th>CHK→Vnd</th><th>Receita</th></tr></thead><tbody>';
     let [tSp,tIm,tCl,tLp,tCk,tSl,tRv]=[0,0,0,0,0,0,0];
     for(const d of days){
       const r=dm[d];
@@ -505,10 +505,10 @@ function renderMetaAds(){
       const roas=r.spendT?r.revenue/r.spendT:null;
       const cac=r.sales?r.spendT/r.sales:null;
       tSp+=r.spendT;tIm+=r.impressions;tCl+=r.clicks;tLp+=r.lpv;tCk+=r.checkouts;tSl+=r.sales;tRv+=r.revenue;
-      dt+=`<tr><td>${fmtBR(d)}</td><td>${money(r.spendT)}</td><td>${int(r.impressions)}</td><td>${int(r.clicks)}</td><td>${pct(ctr)}</td><td>${int(r.lpv)}</td><td>${pct(c2pv)}</td><td>${int(r.checkouts)}</td><td>${pct(pv2ck)}</td><td>${int(r.sales)}</td><td>${pct(ck2sl)}</td><td>${money(r.revenue)}</td><td>${roas!=null?dec(roas)+'×':DASH}</td><td>${money(cac)}</td></tr>`;
+      dt+=`<tr><td>${fmtBR(d)}</td><td>${money(r.spendT)}</td><td>${money(cac)}</td><td>${roas!=null?dec(roas)+'×':DASH}</td><td>${int(r.impressions)}</td><td>${int(r.clicks)}</td><td>${pct(ctr)}</td><td>${int(r.lpv)}</td><td>${pct(c2pv)}</td><td>${int(r.checkouts)}</td><td>${pct(pv2ck)}</td><td>${int(r.sales)}</td><td>${pct(ck2sl)}</td><td>${money(r.revenue)}</td></tr>`;
     }
     const tRoas=tSp?tRv/tSp:null,tCac=tSl?tSp/tSl:null,tCtr=tIm?tCl/tIm*100:null,tC2pv=tCl?tLp/tCl*100:null,tPv2ck=tLp?tCk/tLp*100:null,tCk2sl=tCk?tSl/tCk*100:null;
-    dt+=`<tr class="total"><td>TOTAL</td><td>${money(tSp)}</td><td>${int(tIm)}</td><td>${int(tCl)}</td><td>${pct(tCtr)}</td><td>${int(tLp)}</td><td>${pct(tC2pv)}</td><td>${int(tCk)}</td><td>${pct(tPv2ck)}</td><td>${int(tSl)}</td><td>${pct(tCk2sl)}</td><td>${money(tRv)}</td><td>${tRoas!=null?dec(tRoas)+'×':DASH}</td><td>${money(tCac)}</td></tr>`;
+    dt+=`<tr class="total"><td>TOTAL</td><td>${money(tSp)}</td><td>${money(tCac)}</td><td>${tRoas!=null?dec(tRoas)+'×':DASH}</td><td>${int(tIm)}</td><td>${int(tCl)}</td><td>${pct(tCtr)}</td><td>${int(tLp)}</td><td>${pct(tC2pv)}</td><td>${int(tCk)}</td><td>${pct(tPv2ck)}</td><td>${int(tSl)}</td><td>${pct(tCk2sl)}</td><td>${money(tRv)}</td></tr>`;
     dt+='</tbody></table>';
     document.getElementById('dailyTable').innerHTML=dt;
   }
@@ -522,13 +522,15 @@ function renderMetaAds(){
 }
 
 const OPT_COLS=[
-  ['name','Nome',null],['spendT','Invest. c/ imp',v=>money(v)],['impressions','Impr.',v=>int(v)],
+  ['name','Nome',null],['spendT','Invest. c/ imp',v=>money(v)],
+  ['cac','CAC',v=>money(v)],['roas','ROAS',v=>v==null?DASH:dec(v)+'×'],
+  ['impressions','Impr.',v=>int(v)],
   ['clicks','Cliques',v=>int(v)],['ctr','CTR',v=>pct(v)],['cpc','CPC',v=>money(v)],
   ['cpm','CPM',v=>money(v)],['lpv','Page Views',v=>int(v)],['clkToPv','Cliq→PV',v=>pct(v)],
   ['checkouts','Checkouts',v=>int(v)],['pvToChk','PV→CHK',v=>pct(v)],
   ['sales','Vendas Meta',v=>int(v)],['chkToSales','CHK→Vnd',v=>pct(v)],
   ['revenue','Receita',v=>money(v)],
-  ['conv','Conv.',v=>pct(v)],['cac','CAC',v=>money(v)],['roas','ROAS',v=>v==null?DASH:dec(v)+'×'],
+  ['conv','Conv.',v=>pct(v)],
 ];
 function renderOptTable(){
   const lvl=activeLevel;
