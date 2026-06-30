@@ -8,7 +8,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 
 // --- Sources (the two shared Google Sheets) ---------------------------------
 const SHEET_ADS =
-  'https://docs.google.com/spreadsheets/d/15vio8y0ARUmISgNfgl-h-pR0xvUBGDoWsp7LpnIDby8/export?format=csv&gid=0';
+  'https://docs.google.com/spreadsheets/d/1SbLwinQPazV59EBbFIsrIwhunooNqT4DNVtT4MRhqPc/export?format=csv&gid=0';
 const SHEET_SALES =
   'https://docs.google.com/spreadsheets/d/1Qe1_LFcrd98hhOTa5rJAL78ZRUoHCZ-Pj4kIRgdiljI/export?format=csv&gid=335206954';
 
